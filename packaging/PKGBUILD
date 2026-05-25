@@ -1,0 +1,56 @@
+# Maintainer: Thomas Verhappen <business@thomasverhappen.dev>
+
+pkgname=cosmic-applet-todo-git
+_pkgname=cosmic-applet-todo
+pkgver=0.1.0.r0.g0000000
+pkgrel=1
+pkgdesc='A COSMIC panel applet for daily and long-horizon task planning, backed by markdown'
+arch=('x86_64')
+url='https://github.com/SenorBlub/cosmic-applet-todo'
+license=('MIT' 'Apache')
+depends=('libxkbcommon' 'wayland')
+makedepends=('rust' 'cargo' 'just' 'git')
+provides=("${_pkgname}")
+conflicts=("${_pkgname}")
+source=("git+${url}.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "${_pkgname}"
+    printf '%s.r%s.g%s' \
+        "$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)" \
+        "$(git rev-list --count HEAD)" \
+        "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+    cd "${_pkgname}"
+    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+    cd "${_pkgname}"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --release --locked --frozen
+}
+
+check() {
+    cd "${_pkgname}"
+    cargo test --release --locked --frozen
+}
+
+package() {
+    cd "${_pkgname}"
+    install -Dm0755 "target/release/${_pkgname}" "${pkgdir}/usr/bin/${_pkgname}"
+    install -Dm0755 data/todo-daily-checkin.sh "${pkgdir}/usr/bin/todo-daily-checkin.sh"
+    install -Dm0644 "data/dev.thomasverhappen.CosmicAppletTodo.desktop" \
+        "${pkgdir}/usr/share/applications/dev.thomasverhappen.CosmicAppletTodo.desktop"
+    install -Dm0644 data/todo-daily-checkin.service \
+        "${pkgdir}/usr/lib/systemd/user/todo-daily-checkin.service"
+    install -Dm0644 data/todo-daily-checkin.timer \
+        "${pkgdir}/usr/lib/systemd/user/todo-daily-checkin.timer"
+    install -Dm0644 README.md "${pkgdir}/usr/share/doc/${_pkgname}/README.md"
+    install -Dm0644 LICENSE-MIT "${pkgdir}/usr/share/licenses/${_pkgname}/LICENSE-MIT"
+    install -Dm0644 LICENSE-APACHE "${pkgdir}/usr/share/licenses/${_pkgname}/LICENSE-APACHE"
+}
