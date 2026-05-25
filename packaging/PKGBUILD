@@ -7,7 +7,7 @@ pkgrel=1
 pkgdesc='A COSMIC panel applet for daily and long-horizon task planning, backed by markdown'
 arch=('x86_64')
 url='https://github.com/SenorBlub/cosmic-applet-todo'
-license=('MIT' 'Apache')
+license=('MIT')
 depends=('libxkbcommon' 'wayland')
 makedepends=('rust' 'cargo' 'just' 'git')
 provides=("${_pkgname}")
@@ -52,5 +52,4 @@ package() {
         "${pkgdir}/usr/lib/systemd/user/todo-daily-checkin.timer"
     install -Dm0644 README.md "${pkgdir}/usr/share/doc/${_pkgname}/README.md"
     install -Dm0644 LICENSE-MIT "${pkgdir}/usr/share/licenses/${_pkgname}/LICENSE-MIT"
-    install -Dm0644 LICENSE-APACHE "${pkgdir}/usr/share/licenses/${_pkgname}/LICENSE-APACHE"
 }
