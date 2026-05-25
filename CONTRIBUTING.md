@@ -83,4 +83,4 @@ Out of scope:
 
 ## License
 
-By contributing you agree your contribution is dual-licensed under MIT and Apache-2.0, matching the project.
+By contributing you agree your contribution is licensed under [MIT](LICENSE-MIT), matching the project.
