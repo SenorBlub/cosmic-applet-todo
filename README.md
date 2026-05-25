@@ -124,4 +124,4 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for architecture notes.
 
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your option.
+[MIT](LICENSE-MIT).
