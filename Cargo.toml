@@ -1,0 +1,39 @@
+[package]
+name = "cosmic-applet-todo"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "A COSMIC panel applet for daily and long-horizon task planning, backed by a plain markdown file."
+repository = "https://github.com/SenorBlub/cosmic-applet-todo"
+homepage = "https://github.com/SenorBlub/cosmic-applet-todo"
+readme = "README.md"
+keywords = ["cosmic", "applet", "todo", "task", "panel"]
+categories = ["gui"]
+
+[[bin]]
+name = "cosmic-applet-todo"
+path = "src/main.rs"
+
+[dependencies]
+dirs = "5"
+env_logger = "0.10"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+
+[dependencies.libcosmic]
+git = "https://github.com/pop-os/libcosmic"
+default-features = false
+features = [
+    "applet",
+    "applet-token",
+    "multi-window",
+    "tokio",
+    "wayland",
+    "winit",
+]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

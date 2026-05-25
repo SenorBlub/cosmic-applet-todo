@@ -1,0 +1,6 @@
+/target
+Cargo.lock.bak
+*.tmp
+*.md.tmp
+*.swp
+.DS_Store
