@@ -6,7 +6,8 @@ use cosmic::iced::window::Id;
 use cosmic::iced::{Length, Rectangle};
 use cosmic::surface::action::{app_popup, destroy_popup};
 use cosmic::widget::{
-    button, container, divider, icon, scrollable, settings, text, text_input, toggler, Column, Row,
+    button, container, divider, icon, scrollable, segmented_button, settings, text, text_input,
+    toggler, Column, Row,
 };
 use cosmic::Element;
 
@@ -29,6 +30,8 @@ pub struct Window {
     todo: TodoFile,
     section_inputs: [String; 3],
     mode: Mode,
+    horizon_model: segmented_button::SingleSelectModel,
+    horizon_entities: [segmented_button::Entity; 3],
     settings_time: String,
     settings_enabled: bool,
     settings_path: String,
@@ -39,6 +42,7 @@ pub struct Window {
 pub enum Message {
     PopupClosed(Id),
     Surface(cosmic::surface::Action),
+    HorizonSelected(segmented_button::Entity),
     Toggle(Horizon, usize),
     Delete(Horizon, usize),
     SectionInput(Horizon, String),
@@ -50,6 +54,18 @@ pub enum Message {
     SettingsEnabledToggle(bool),
     SettingsPathInput(String),
     SettingsSave,
+}
+
+fn build_horizon_model() -> (
+    segmented_button::SingleSelectModel,
+    [segmented_button::Entity; 3],
+) {
+    let mut model = segmented_button::SingleSelectModel::default();
+    let today = model.insert().text("Today").id();
+    let week = model.insert().text("This Week").id();
+    let someday = model.insert().text("Someday").id();
+    model.activate(today);
+    (model, [today, week, someday])
 }
 
 impl Window {
@@ -70,6 +86,16 @@ impl Window {
         self.settings_feedback = None;
     }
 
+    fn current_horizon(&self) -> Horizon {
+        let active = self.horizon_model.active();
+        for (i, entity) in self.horizon_entities.iter().enumerate() {
+            if *entity == active {
+                return Horizon::ALL[i];
+            }
+        }
+        Horizon::Today
+    }
+
     fn pending_today_count(&self) -> usize {
         self.todo
             .bucket(Horizon::Today)
@@ -78,11 +104,9 @@ impl Window {
             .count()
     }
 
-    fn section_view(&self, h: Horizon) -> Element<'_, cosmic::Action<Message>> {
+    fn section_tasks(&self, h: Horizon) -> Element<'_, cosmic::Action<Message>> {
         let spacing = cosmic::theme::active().cosmic().spacing;
-
         let mut col = Column::new().spacing(spacing.space_xxs).width(Length::Fill);
-        col = col.push(text::heading(h.heading()));
 
         let tasks = self.todo.bucket(h);
         if tasks.is_empty() {
@@ -90,44 +114,48 @@ impl Window {
                 container(text::caption("Nothing here yet"))
                     .padding([spacing.space_xxxs, spacing.space_xs]),
             );
-        } else {
-            for (i, task) in tasks.iter().enumerate() {
-                let icon_name: &str = if task.done {
-                    &self.config.icon_clear
-                } else {
-                    &self.config.icon_pending
-                };
-                let row_content = Row::new()
-                    .spacing(spacing.space_xs)
-                    .align_y(Vertical::Center)
-                    .push(icon::from_name(icon_name.to_string()).size(16))
-                    .push(text(task.text.clone()).width(Length::Fill));
-
-                let toggle = button::custom(row_content)
-                    .on_press(cosmic::Action::App(Message::Toggle(h, i)))
-                    .width(Length::Fill);
-
-                let del = button::icon(icon::from_name("window-close-symbolic"))
-                    .on_press(cosmic::Action::App(Message::Delete(h, i)));
-
-                let line = Row::new()
-                    .spacing(spacing.space_xxs)
-                    .align_y(Vertical::Center)
-                    .push(toggle)
-                    .push(del);
-                col = col.push(line);
-            }
+            return col.into();
         }
 
-        let value = self.section_inputs[h.index()].clone();
-        let placeholder = format!("Add to {}…", h.heading().to_lowercase());
-        let input = text_input(placeholder, value)
-            .on_input(move |s| cosmic::Action::App(Message::SectionInput(h, s)))
-            .on_submit(move |_| cosmic::Action::App(Message::SectionSubmit(h)))
-            .padding(spacing.space_xxs);
-        col = col.push(input);
+        for (i, task) in tasks.iter().enumerate() {
+            let icon_name: &str = if task.done {
+                &self.config.icon_clear
+            } else {
+                &self.config.icon_pending
+            };
+            let row_content = Row::new()
+                .spacing(spacing.space_xs)
+                .align_y(Vertical::Center)
+                .push(icon::from_name(icon_name.to_string()).size(16))
+                .push(text(task.text.clone()).width(Length::Fill));
+
+            let toggle = button::custom(row_content)
+                .on_press(cosmic::Action::App(Message::Toggle(h, i)))
+                .width(Length::Fill);
+
+            let del = button::icon(icon::from_name("window-close-symbolic"))
+                .on_press(cosmic::Action::App(Message::Delete(h, i)));
+
+            let line = Row::new()
+                .spacing(spacing.space_xxs)
+                .align_y(Vertical::Center)
+                .push(toggle)
+                .push(del);
+            col = col.push(line);
+        }
 
         col.into()
+    }
+
+    fn section_input(&self, h: Horizon) -> Element<'_, cosmic::Action<Message>> {
+        let spacing = cosmic::theme::active().cosmic().spacing;
+        let value = self.section_inputs[h.index()].clone();
+        let placeholder = format!("Add to {}…", h.heading().to_lowercase());
+        text_input(placeholder, value)
+            .on_input(move |s| cosmic::Action::App(Message::SectionInput(h, s)))
+            .on_submit(move |_| cosmic::Action::App(Message::SectionSubmit(h)))
+            .padding(spacing.space_xxs)
+            .into()
     }
 
     fn tasks_header(&self) -> Element<'_, cosmic::Action<Message>> {
@@ -158,29 +186,31 @@ impl Window {
 
     fn tasks_view(&self) -> Element<'_, cosmic::Action<Message>> {
         let spacing = cosmic::theme::active().cosmic().spacing;
+        let horizon = self.current_horizon();
 
-        let mut col = Column::new()
+        let toggle = segmented_button::horizontal(&self.horizon_model)
+            .on_activate(|e| cosmic::Action::App(Message::HorizonSelected(e)));
+
+        // Only the task list scrolls; toggle + input + edit button stay docked.
+        let scroll = scrollable(self.section_tasks(horizon)).height(Length::Fill);
+
+        let col = Column::new()
             .spacing(spacing.space_s)
             .padding(spacing.space_s)
             .width(Length::Fixed(self.config.popup_width as f32))
-            .push(self.tasks_header());
+            .height(Length::Fixed(self.config.popup_height as f32))
+            .push(self.tasks_header())
+            .push(toggle)
+            .push(scroll)
+            .push(self.section_input(horizon))
+            .push(divider::horizontal::default())
+            .push(
+                button::standard("Edit todo file")
+                    .on_press(cosmic::Action::App(Message::OpenInEditor))
+                    .width(Length::Fill),
+            );
 
-        for (idx, h) in Horizon::ALL.iter().copied().enumerate() {
-            col = col.push(self.section_view(h));
-            if idx + 1 < Horizon::ALL.len() {
-                col = col.push(divider::horizontal::default());
-            }
-        }
-
-        col = col.push(divider::horizontal::default());
-        col = col.push(
-            button::standard("Edit todo file")
-                .on_press(cosmic::Action::App(Message::OpenInEditor))
-                .width(Length::Fill),
-        );
-
-        let scroll = scrollable(col).height(Length::Shrink);
-        Element::from(self.core.applet.popup_container(scroll))
+        Element::from(self.core.applet.popup_container(col))
     }
 
     fn settings_view(&self) -> Element<'_, cosmic::Action<Message>> {
@@ -257,6 +287,7 @@ impl cosmic::Application for Window {
         let settings_time = flags.daily_checkin_time.clone();
         let settings_enabled = flags.daily_checkin_enabled;
         let settings_path = flags.file_path.display().to_string();
+        let (horizon_model, horizon_entities) = build_horizon_model();
         let window = Window {
             core,
             config: flags,
@@ -264,6 +295,8 @@ impl cosmic::Application for Window {
             todo,
             section_inputs: Default::default(),
             mode: Mode::Tasks,
+            horizon_model,
+            horizon_entities,
             settings_time,
             settings_enabled,
             settings_path,
@@ -287,6 +320,9 @@ impl cosmic::Application for Window {
                 return cosmic::task::message(cosmic::Action::Cosmic(
                     cosmic::app::Action::Surface(a),
                 ));
+            }
+            Message::HorizonSelected(entity) => {
+                self.horizon_model.activate(entity);
             }
             Message::Toggle(h, i) => {
                 if let Some(t) = self.todo.bucket_mut(h).get_mut(i) {
@@ -381,6 +417,7 @@ impl cosmic::Application for Window {
             &self.config.icon_pending
         };
         let popup_size = (self.config.popup_width, self.config.popup_height);
+        let default_horizon_entity = self.horizon_entities[0];
         let btn = self
             .core
             .applet
@@ -394,6 +431,7 @@ impl cosmic::Application for Window {
                             let new_id = Id::unique();
                             state.popup = Some(new_id);
                             state.mode = Mode::Tasks;
+                            state.horizon_model.activate(default_horizon_entity);
                             state.sync_settings_from_config();
                             state.reload();
                             let mut popup_settings = state.core.applet.get_popup_settings(
