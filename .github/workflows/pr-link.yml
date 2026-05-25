@@ -1,0 +1,31 @@
+name: PR
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches: [main, dev]
+
+jobs:
+  issue-link:
+    name: issue-link
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require an issue reference in the title or body
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        shell: bash
+        run: |
+          set -eu
+          combined=$(printf '%s\n%s\n' "$PR_TITLE" "${PR_BODY:-}")
+          if printf '%s' "$combined" | grep -qE '#[0-9]+'; then
+            printf 'OK: PR references an issue.\n'
+            exit 0
+          fi
+          {
+            echo '::error::PR must reference an issue.'
+            echo 'Either start the title with the issue number ("#42 Fix bug") or'
+            echo 'write "closes #42" / "fixes #42" / "refs #42" in the body.'
+            echo 'This keeps the changelog auditable.'
+          } >&2
+          exit 1

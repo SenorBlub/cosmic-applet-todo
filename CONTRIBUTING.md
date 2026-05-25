@@ -39,8 +39,28 @@ Three modules:
 
 The applet is a `cosmic::Application` with `Flags = Config`. The popup is constructed via `cosmic::surface::action::app_popup`. All spacing uses `cosmic::theme::active().cosmic().spacing` tokens — please don't hardcode pixel values.
 
+## Branching
+
+- `main` — release-stable. Tagged releases live here. PRs from `dev` only.
+- `dev` — active development. PRs from feature branches land here.
+
+Both branches are protected: direct pushes are blocked, PRs are required, CI must pass, history must be linear. Admins can bypass for hotfixes.
+
 ## Pull requests
 
+**Every PR must reference an issue.** This keeps changes traceable — `git log` plus the linked issues should fully explain why the codebase looks the way it does.
+
+Acceptable formats:
+
+```
+#42 Short description
+#42 - Short description
+feat(#42): Short description
+```
+
+Or, if the title doesn't lead with the number, the body must contain `closes #42`, `fixes #42`, `resolves #42`, or `refs #42`. The `PR / issue-link` check enforces this.
+
+- Open the issue first if one doesn't exist. It can be one line.
 - Run `just ci` locally before pushing.
 - Keep changes focused — one feature or fix per PR.
 - New features that add config knobs: add a default that mirrors current behavior.
