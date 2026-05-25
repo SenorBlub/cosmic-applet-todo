@@ -23,6 +23,13 @@ enum Mode {
     Settings,
 }
 
+#[derive(Clone, Debug)]
+struct EditState {
+    horizon: Horizon,
+    index: usize,
+    buffer: String,
+}
+
 pub struct Window {
     core: Core,
     config: Config,
@@ -32,6 +39,7 @@ pub struct Window {
     mode: Mode,
     horizon_model: segmented_button::SingleSelectModel,
     horizon_entities: [segmented_button::Entity; 3],
+    editing: Option<EditState>,
     settings_time: String,
     settings_enabled: bool,
     settings_path: String,
@@ -47,6 +55,10 @@ pub enum Message {
     Delete(Horizon, usize),
     SectionInput(Horizon, String),
     SectionSubmit(Horizon),
+    BeginEdit(Horizon, usize),
+    EditInput(String),
+    CommitEdit,
+    CancelEdit,
     OpenInEditor,
     EnterSettings,
     ExitSettings,
@@ -118,33 +130,84 @@ impl Window {
         }
 
         for (i, task) in tasks.iter().enumerate() {
-            let icon_name: &str = if task.done {
-                &self.config.icon_clear
-            } else {
-                &self.config.icon_pending
-            };
-            let row_content = Row::new()
-                .spacing(spacing.space_xs)
-                .align_y(Vertical::Center)
-                .push(icon::from_name(icon_name.to_string()).size(16))
-                .push(text(task.text.clone()).width(Length::Fill));
-
-            let toggle = button::custom(row_content)
-                .on_press(cosmic::Action::App(Message::Toggle(h, i)))
-                .width(Length::Fill);
-
-            let del = button::icon(icon::from_name("window-close-symbolic"))
-                .on_press(cosmic::Action::App(Message::Delete(h, i)));
-
-            let line = Row::new()
-                .spacing(spacing.space_xxs)
-                .align_y(Vertical::Center)
-                .push(toggle)
-                .push(del);
-            col = col.push(line);
+            col = col.push(self.task_row(h, i, task));
         }
 
         col.into()
+    }
+
+    fn task_row(
+        &self,
+        h: Horizon,
+        i: usize,
+        task: &TodoTask,
+    ) -> Element<'_, cosmic::Action<Message>> {
+        let editing_this = matches!(
+            &self.editing,
+            Some(state) if state.horizon == h && state.index == i
+        );
+        if editing_this {
+            self.task_edit_row()
+        } else {
+            self.task_view_row(h, i, task)
+        }
+    }
+
+    fn task_view_row(
+        &self,
+        h: Horizon,
+        i: usize,
+        task: &TodoTask,
+    ) -> Element<'_, cosmic::Action<Message>> {
+        let spacing = cosmic::theme::active().cosmic().spacing;
+        let icon_name: &str = if task.done {
+            &self.config.icon_clear
+        } else {
+            &self.config.icon_pending
+        };
+
+        let toggle = button::icon(icon::from_name(icon_name.to_string()).size(16))
+            .on_press(cosmic::Action::App(Message::Toggle(h, i)));
+
+        let label = button::custom(text(task.text.clone()).width(Length::Fill))
+            .on_press(cosmic::Action::App(Message::BeginEdit(h, i)))
+            .width(Length::Fill);
+
+        let del = button::icon(icon::from_name("window-close-symbolic"))
+            .on_press(cosmic::Action::App(Message::Delete(h, i)));
+
+        Row::new()
+            .spacing(spacing.space_xxs)
+            .align_y(Vertical::Center)
+            .push(toggle)
+            .push(label)
+            .push(del)
+            .into()
+    }
+
+    fn task_edit_row(&self) -> Element<'_, cosmic::Action<Message>> {
+        let spacing = cosmic::theme::active().cosmic().spacing;
+        let buffer = self
+            .editing
+            .as_ref()
+            .map(|s| s.buffer.clone())
+            .unwrap_or_default();
+
+        let input = text_input("Task…", buffer)
+            .on_input(|s| cosmic::Action::App(Message::EditInput(s)))
+            .on_submit(|_| cosmic::Action::App(Message::CommitEdit))
+            .padding(spacing.space_xxs)
+            .width(Length::Fill);
+
+        let cancel = button::icon(icon::from_name("window-close-symbolic"))
+            .on_press(cosmic::Action::App(Message::CancelEdit));
+
+        Row::new()
+            .spacing(spacing.space_xxs)
+            .align_y(Vertical::Center)
+            .push(input)
+            .push(cancel)
+            .into()
     }
 
     fn section_input(&self, h: Horizon) -> Element<'_, cosmic::Action<Message>> {
@@ -298,6 +361,7 @@ impl cosmic::Application for Window {
             mode: Mode::Tasks,
             horizon_model,
             horizon_entities,
+            editing: None,
             settings_time,
             settings_enabled,
             settings_path,
@@ -324,6 +388,7 @@ impl cosmic::Application for Window {
             }
             Message::HorizonSelected(entity) => {
                 self.horizon_model.activate(entity);
+                self.editing = None;
             }
             Message::Toggle(h, i) => {
                 if let Some(t) = self.todo.bucket_mut(h).get_mut(i) {
@@ -336,7 +401,45 @@ impl cosmic::Application for Window {
                 if i < bucket.len() {
                     bucket.remove(i);
                     self.save_todo();
+                    if let Some(state) = &self.editing {
+                        if state.horizon == h && state.index >= i {
+                            self.editing = None;
+                        }
+                    }
                 }
+            }
+            Message::BeginEdit(h, i) => {
+                if let Some(task) = self.todo.bucket(h).get(i) {
+                    self.editing = Some(EditState {
+                        horizon: h,
+                        index: i,
+                        buffer: task.text.clone(),
+                    });
+                }
+            }
+            Message::EditInput(s) => {
+                if let Some(state) = &mut self.editing {
+                    state.buffer = s;
+                }
+            }
+            Message::CommitEdit => {
+                if let Some(state) = self.editing.take() {
+                    let trimmed = state.buffer.trim().to_string();
+                    if trimmed.is_empty() {
+                        // Empty edits are rejected — restore the edit state.
+                        self.editing = Some(state);
+                    } else if let Some(task) =
+                        self.todo.bucket_mut(state.horizon).get_mut(state.index)
+                    {
+                        if task.text != trimmed {
+                            task.text = trimmed;
+                            self.save_todo();
+                        }
+                    }
+                }
+            }
+            Message::CancelEdit => {
+                self.editing = None;
             }
             Message::SectionInput(h, s) => {
                 self.section_inputs[h.index()] = s;
@@ -433,6 +536,7 @@ impl cosmic::Application for Window {
                             state.popup = Some(new_id);
                             state.mode = Mode::Tasks;
                             state.horizon_model.activate(default_horizon_entity);
+                            state.editing = None;
                             state.sync_settings_from_config();
                             state.reload();
                             let mut popup_settings = state.core.applet.get_popup_settings(
