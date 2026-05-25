@@ -244,10 +244,15 @@ impl Window {
         let toggle = button::icon(icon::from_name(icon_name.to_string()).size(16))
             .on_press(cosmic::Action::App(Message::Toggle(h, i)));
 
-        let label = button::custom(text(task.text.clone()).width(Length::Fill))
+        let label = button::custom(text(task.text.clone()))
             .class(calm_task_label_class())
-            .on_press(cosmic::Action::App(Message::BeginEdit(h, i)))
-            .width(Length::Fill);
+            .on_press(cosmic::Action::App(Message::BeginEdit(h, i)));
+
+        // Wrap the label in a Fill-width container so the leftover row space
+        // pushes the delete button to the right edge. Setting Length::Fill
+        // directly on the button caused long labels to overflow the row,
+        // sending the delete `×` past the popup edge.
+        let label_box = container(label).width(Length::Fill);
 
         let del = button::icon(icon::from_name("window-close-symbolic"))
             .on_press(cosmic::Action::App(Message::Delete(h, i)));
@@ -257,7 +262,7 @@ impl Window {
             .align_y(Vertical::Center)
             .width(Length::Fill)
             .push(toggle)
-            .push(label)
+            .push(label_box)
             .push(del)
             .into()
     }
