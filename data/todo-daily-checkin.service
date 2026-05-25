@@ -1,0 +1,6 @@
+[Unit]
+Description=Todo daily check-in notification
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/todo-daily-checkin.sh
