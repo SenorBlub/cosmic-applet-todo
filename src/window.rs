@@ -5,6 +5,7 @@ use cosmic::iced::alignment::Vertical;
 use cosmic::iced::window::Id;
 use cosmic::iced::{Length, Rectangle};
 use cosmic::surface::action::{app_popup, destroy_popup};
+use cosmic::widget::reorderable_flex_row::reorderable_flex_row;
 use cosmic::widget::{
     button, container, divider, icon, scrollable, segmented_button, segmented_control, settings,
     text, text_input, toggler, Column, Row,
@@ -59,6 +60,7 @@ pub enum Message {
     EditInput(String),
     CommitEdit,
     CancelEdit,
+    Reorder(Horizon, Vec<usize>),
     OpenInEditor,
     EnterSettings,
     ExitSettings,
@@ -118,22 +120,41 @@ impl Window {
 
     fn section_tasks(&self, h: Horizon) -> Element<'_, cosmic::Action<Message>> {
         let spacing = cosmic::theme::active().cosmic().spacing;
-        let mut col = Column::new().spacing(spacing.space_xxs).width(Length::Fill);
-
         let tasks = self.todo.bucket(h);
+
         if tasks.is_empty() {
-            col = col.push(
-                container(text::caption("Nothing here yet"))
-                    .padding([spacing.space_xxxs, spacing.space_xs]),
-            );
-            return col.into();
+            return container(text::caption("Nothing here yet"))
+                .padding([spacing.space_xxxs, spacing.space_xs])
+                .width(Length::Fill)
+                .into();
         }
+
+        let mut list = reorderable_flex_row(move |new_order: Vec<usize>| {
+            cosmic::Action::App(Message::Reorder(h, new_order))
+        })
+        .spacing(spacing.space_xxs)
+        .width(Length::Fill);
+
+        let editing_index = self.editing.as_ref().and_then(|state| {
+            if state.horizon == h {
+                Some(state.index)
+            } else {
+                None
+            }
+        });
 
         for (i, task) in tasks.iter().enumerate() {
-            col = col.push(self.task_row(h, i, task));
+            let row = self.task_row(h, i, task);
+            // Don't allow dragging the row that's currently being edited —
+            // the user is typing into a text_input, drag would be confusing.
+            list = if Some(i) == editing_index {
+                list.push_locked(i, row)
+            } else {
+                list.push(i, row)
+            };
         }
 
-        col.into()
+        list.into()
     }
 
     fn task_row(
@@ -179,6 +200,7 @@ impl Window {
         Row::new()
             .spacing(spacing.space_xxs)
             .align_y(Vertical::Center)
+            .width(Length::Fill)
             .push(toggle)
             .push(label)
             .push(del)
@@ -205,6 +227,7 @@ impl Window {
         Row::new()
             .spacing(spacing.space_xxs)
             .align_y(Vertical::Center)
+            .width(Length::Fill)
             .push(input)
             .push(cancel)
             .into()
@@ -440,6 +463,39 @@ impl cosmic::Application for Window {
             }
             Message::CancelEdit => {
                 self.editing = None;
+            }
+            Message::Reorder(h, new_order) => {
+                let bucket = self.todo.bucket_mut(h);
+                let len = bucket.len();
+                // Defend against malformed callback input — only accept a
+                // permutation that references each current index exactly once.
+                let mut seen = vec![false; len];
+                let valid = new_order.len() == len
+                    && new_order.iter().all(|&i| {
+                        if i < len && !seen[i] {
+                            seen[i] = true;
+                            true
+                        } else {
+                            false
+                        }
+                    });
+                if !valid {
+                    log::warn!(
+                        "Reorder ignored: invalid permutation for {} ({:?})",
+                        h.heading(),
+                        new_order
+                    );
+                } else {
+                    let reordered: Vec<TodoTask> =
+                        new_order.iter().map(|&i| bucket[i].clone()).collect();
+                    *bucket = reordered;
+                    // Cancel any in-flight edit on this horizon — the index
+                    // it referred to no longer points at the same task.
+                    if matches!(&self.editing, Some(s) if s.horizon == h) {
+                        self.editing = None;
+                    }
+                    self.save_todo();
+                }
             }
             Message::SectionInput(h, s) => {
                 self.section_inputs[h.index()] = s;
