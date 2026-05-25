@@ -67,45 +67,48 @@ Rules:
 
 ## Configuration
 
-Optional config at `~/.config/cosmic-applet-todo/config.toml`. Defaults shown:
+The easiest way to change anything is the **in-app Settings panel**: click the gear icon in the popup header. The Settings panel covers daily check-in time, whether the daily check-in is enabled, and the path to your todo file. Saving the panel writes the config file and applies the systemd timer change in one step.
+
+If you'd rather hand-edit, the config lives at `~/.config/cosmic-applet-todo/config.toml`. Defaults:
 
 ```toml
 # Path to the markdown file.
 file_path = "~/todo.md"
 
 # Tray icons. Any freedesktop icon name available in cosmic-icons.
-icon_pending = "checkbox-symbolic"        # shown when Today has open tasks
+icon_pending = "checkbox-symbolic"          # shown when Today has open tasks
 icon_clear   = "checkbox-checked-symbolic"  # shown when Today is empty
 
 # Popup window size in logical pixels.
 popup_width  = 380
 popup_height = 620
+
+# Daily check-in.
+daily_checkin_time    = "08:00"  # 24-hour HH:MM
+daily_checkin_enabled = true
 ```
+
+After hand-editing, run `cosmic-applet-todo configure-checkin` (or `just configure`) to apply check-in changes to systemd.
 
 The popup uses COSMIC's spacing tokens for padding/gaps, so the layout follows your active COSMIC theme automatically.
 
 ### Daily check-in
 
-A systemd user timer fires at 08:00 every day and sends a desktop notification summarizing Today.
+A systemd user timer fires once per day at `daily_checkin_time` and sends a desktop notification summarizing today's open tasks.
 
-Change the time:
-
-```sh
-systemctl --user edit todo-daily-checkin.timer
-# Then under [Timer], override OnCalendar — e.g. OnCalendar=*-*-* 07:30:00
-```
-
-Disable entirely:
-
-```sh
-systemctl --user disable --now todo-daily-checkin.timer
-```
-
-Test now:
+Test it without waiting:
 
 ```sh
 systemctl --user start todo-daily-checkin.service
 ```
+
+If you ever need to override at the systemd level (e.g. multiple triggers per day), drop into:
+
+```sh
+systemctl --user edit todo-daily-checkin.timer
+```
+
+That writes to a separate drop-in (`override.conf` from the applet is preserved).
 
 ## Development
 

@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,8 @@ pub struct Config {
     pub icon_clear: String,
     pub popup_width: u32,
     pub popup_height: u32,
+    pub daily_checkin_time: String,
+    pub daily_checkin_enabled: bool,
 }
 
 impl Default for Config {
@@ -23,6 +26,8 @@ impl Default for Config {
             icon_clear: "checkbox-checked-symbolic".to_string(),
             popup_width: 380,
             popup_height: 620,
+            daily_checkin_time: "08:00".to_string(),
+            daily_checkin_enabled: true,
         }
     }
 }
@@ -36,7 +41,7 @@ impl Config {
 
     pub fn load() -> Self {
         let path = Self::config_path();
-        let Ok(raw) = std::fs::read_to_string(&path) else {
+        let Ok(raw) = fs::read_to_string(&path) else {
             return Self::default();
         };
         match toml::from_str::<Self>(&raw) {
@@ -46,5 +51,17 @@ impl Config {
                 Self::default()
             }
         }
+    }
+
+    pub fn save(&self) -> Result<(), String> {
+        let path = Self::config_path();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("create config dir: {e}"))?;
+        }
+        let body = toml::to_string_pretty(self).map_err(|e| format!("serialize config: {e}"))?;
+        let tmp = path.with_extension("toml.tmp");
+        fs::write(&tmp, body).map_err(|e| format!("write {}: {e}", tmp.display()))?;
+        fs::rename(&tmp, &path).map_err(|e| format!("rename {}: {e}", tmp.display()))?;
+        Ok(())
     }
 }

@@ -68,8 +68,14 @@ install-user: build
     install -Dm0644 data/todo-daily-checkin.timer {{user_systemd}}/todo-daily-checkin.timer
     systemctl --user daemon-reload
     systemctl --user enable --now todo-daily-checkin.timer
+    {{user_bindir / name}} configure-checkin
     @echo
     @echo 'Installed. Add the applet via COSMIC Settings → Desktop → Panel → Add Applet → Todo.'
+
+# Re-apply current ~/.config/cosmic-applet-todo/config.toml to systemd.
+# Run after editing the config file directly (the in-app Settings UI does this automatically).
+configure:
+    {{user_bindir / name}} configure-checkin
 
 # Uninstall the user installation
 uninstall-user:
