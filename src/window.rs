@@ -218,7 +218,7 @@ impl Window {
         let input = text_input("Task…", buffer)
             .on_input(|s| cosmic::Action::App(Message::EditInput(s)))
             .on_submit(|_| cosmic::Action::App(Message::CommitEdit))
-            .padding(spacing.space_xxs)
+            .padding(spacing.space_xs)
             .width(Length::Fill);
 
         let cancel = button::icon(icon::from_name("window-close-symbolic"))
@@ -240,7 +240,7 @@ impl Window {
         text_input(placeholder, value)
             .on_input(move |s| cosmic::Action::App(Message::SectionInput(h, s)))
             .on_submit(move |_| cosmic::Action::App(Message::SectionSubmit(h)))
-            .padding(spacing.space_xxs)
+            .padding(spacing.space_xs)
             .into()
     }
 
@@ -305,7 +305,7 @@ impl Window {
 
         let time_input = text_input("HH:MM", self.settings_time.clone())
             .on_input(|s| cosmic::Action::App(Message::SettingsTimeInput(s)))
-            .padding(spacing.space_xxs)
+            .padding(spacing.space_xs)
             .width(Length::Fixed(96.0));
 
         let enabled_toggle = toggler(self.settings_enabled)
@@ -318,7 +318,7 @@ impl Window {
 
         let path_input = text_input("~/todo.md", self.settings_path.clone())
             .on_input(|s| cosmic::Action::App(Message::SettingsPathInput(s)))
-            .padding(spacing.space_xxs)
+            .padding(spacing.space_xs)
             .width(Length::Fill);
 
         let storage_section = settings::section()
