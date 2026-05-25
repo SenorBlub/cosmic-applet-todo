@@ -169,7 +169,7 @@ impl Window {
         let toggle = button::icon(icon::from_name(icon_name.to_string()).size(16))
             .on_press(cosmic::Action::App(Message::Toggle(h, i)));
 
-        let label = button::custom(text(task.text.clone()).width(Length::Fill))
+        let label = button::text(task.text.clone())
             .on_press(cosmic::Action::App(Message::BeginEdit(h, i)))
             .width(Length::Fill);
 
