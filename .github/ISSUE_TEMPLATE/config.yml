@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/SenorBlub/cosmic-applet-todo/security/policy
+    about: Please report security issues via the channel in SECURITY.md, not as a public issue.
+  - name: COSMIC desktop itself
+    url: https://github.com/pop-os/cosmic-epoch
+    about: Bugs in the COSMIC desktop, panel, or libcosmic belong in their upstream repos.

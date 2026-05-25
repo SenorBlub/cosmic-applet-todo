@@ -1,0 +1,66 @@
+name: Bug report
+description: Something in the applet is broken or behaves unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. A few details up front will make this much faster to triage.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear, concise description of the bug.
+      placeholder: When I click the panel icon, …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the popup
+        2. Add a task "…"
+        3. Click X
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `cosmic-applet-todo --version` if available, otherwise the commit SHA you built from.
+    validations:
+      required: true
+  - type: input
+    id: cosmic-version
+    attributes:
+      label: COSMIC version
+      description: Output of `cosmic-comp --version` or your Pop!_OS / distro version.
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distro and kernel
+      description: e.g. Pop!_OS 24.04, kernel 6.18.7
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Run with `COSMIC_APPLET_TODO_LOG=debug cosmic-applet-todo` from a terminal and paste the output, or paste relevant `journalctl --user -u cosmic-panel` lines.
+      render: shell
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow this project's [Code of Conduct](../CODE_OF_CONDUCT.md).
+          required: true
