@@ -6,8 +6,8 @@ use cosmic::iced::window::Id;
 use cosmic::iced::{Length, Rectangle};
 use cosmic::surface::action::{app_popup, destroy_popup};
 use cosmic::widget::{
-    button, container, divider, icon, scrollable, segmented_button, settings, text, text_input,
-    toggler, Column, Row,
+    button, container, divider, icon, scrollable, segmented_button, segmented_control, settings,
+    text, text_input, toggler, Column, Row,
 };
 use cosmic::Element;
 
@@ -188,7 +188,8 @@ impl Window {
         let spacing = cosmic::theme::active().cosmic().spacing;
         let horizon = self.current_horizon();
 
-        let toggle = segmented_button::horizontal(&self.horizon_model)
+        let toggle = segmented_control::horizontal(&self.horizon_model)
+            .width(Length::Fill)
             .on_activate(|e| cosmic::Action::App(Message::HorizonSelected(e)));
 
         // Only the task list scrolls; toggle + input + edit button stay docked.
