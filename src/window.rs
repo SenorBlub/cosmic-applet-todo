@@ -5,6 +5,9 @@ use cosmic::iced::alignment::Vertical;
 use cosmic::iced::window::Id;
 use cosmic::iced::{Length, Rectangle};
 use cosmic::surface::action::{app_popup, destroy_popup};
+use cosmic::theme::Button as ThemeButton;
+use cosmic::widget::button::Catalog as ButtonCatalog;
+use cosmic::widget::button::Style as ButtonStyle;
 use cosmic::widget::reorderable_flex_row::reorderable_flex_row;
 use cosmic::widget::{
     button, container, divider, icon, scrollable, segmented_button, segmented_control, settings,
@@ -68,6 +71,57 @@ pub enum Message {
     SettingsEnabledToggle(bool),
     SettingsPathInput(String),
     SettingsSave,
+}
+
+// Standard button style but with the smaller `radius_s` corner radius.
+// `Button::Standard` (and `button::custom`) default to `radius_xl`, which
+// looks like a full pill on short rows and visually clips longer labels.
+fn calm_task_label_class() -> ThemeButton {
+    fn shrink(theme: &cosmic::Theme, mut style: ButtonStyle) -> ButtonStyle {
+        style.border_radius = theme.cosmic().corner_radii.radius_s.into();
+        style
+    }
+    ThemeButton::Custom {
+        active: Box::new(|focused, theme| {
+            shrink(
+                theme,
+                <cosmic::Theme as ButtonCatalog>::active(
+                    theme,
+                    focused,
+                    false,
+                    &ThemeButton::Standard,
+                ),
+            )
+        }),
+        hovered: Box::new(|focused, theme| {
+            shrink(
+                theme,
+                <cosmic::Theme as ButtonCatalog>::hovered(
+                    theme,
+                    focused,
+                    false,
+                    &ThemeButton::Standard,
+                ),
+            )
+        }),
+        pressed: Box::new(|focused, theme| {
+            shrink(
+                theme,
+                <cosmic::Theme as ButtonCatalog>::pressed(
+                    theme,
+                    focused,
+                    false,
+                    &ThemeButton::Standard,
+                ),
+            )
+        }),
+        disabled: Box::new(|theme| {
+            shrink(
+                theme,
+                <cosmic::Theme as ButtonCatalog>::disabled(theme, &ThemeButton::Standard),
+            )
+        }),
+    }
 }
 
 fn build_horizon_model() -> (
@@ -190,7 +244,8 @@ impl Window {
         let toggle = button::icon(icon::from_name(icon_name.to_string()).size(16))
             .on_press(cosmic::Action::App(Message::Toggle(h, i)));
 
-        let label = button::text(task.text.clone())
+        let label = button::custom(text(task.text.clone()).width(Length::Fill))
+            .class(calm_task_label_class())
             .on_press(cosmic::Action::App(Message::BeginEdit(h, i)))
             .width(Length::Fill);
 
@@ -218,7 +273,7 @@ impl Window {
         let input = text_input("Task…", buffer)
             .on_input(|s| cosmic::Action::App(Message::EditInput(s)))
             .on_submit(|_| cosmic::Action::App(Message::CommitEdit))
-            .padding(spacing.space_xs)
+            .padding(spacing.space_xxs)
             .width(Length::Fill);
 
         let cancel = button::icon(icon::from_name("window-close-symbolic"))
@@ -240,7 +295,7 @@ impl Window {
         text_input(placeholder, value)
             .on_input(move |s| cosmic::Action::App(Message::SectionInput(h, s)))
             .on_submit(move |_| cosmic::Action::App(Message::SectionSubmit(h)))
-            .padding(spacing.space_xs)
+            .padding(spacing.space_xxs)
             .into()
     }
 
@@ -305,7 +360,7 @@ impl Window {
 
         let time_input = text_input("HH:MM", self.settings_time.clone())
             .on_input(|s| cosmic::Action::App(Message::SettingsTimeInput(s)))
-            .padding(spacing.space_xs)
+            .padding(spacing.space_xxs)
             .width(Length::Fixed(96.0));
 
         let enabled_toggle = toggler(self.settings_enabled)
@@ -318,7 +373,7 @@ impl Window {
 
         let path_input = text_input("~/todo.md", self.settings_path.clone())
             .on_input(|s| cosmic::Action::App(Message::SettingsPathInput(s)))
-            .padding(spacing.space_xs)
+            .padding(spacing.space_xxs)
             .width(Length::Fill);
 
         let storage_section = settings::section()
