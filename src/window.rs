@@ -63,6 +63,7 @@ pub enum Message {
     EditInput(String),
     CommitEdit,
     CancelEdit,
+    MoveTo(Horizon),
     Reorder(Horizon, Vec<usize>),
     OpenInEditor,
     EnterSettings,
@@ -269,6 +270,11 @@ impl Window {
 
     fn task_edit_row(&self) -> Element<'_, cosmic::Action<Message>> {
         let spacing = cosmic::theme::active().cosmic().spacing;
+        let current = self
+            .editing
+            .as_ref()
+            .map(|s| s.horizon)
+            .unwrap_or(Horizon::Today);
         let buffer = self
             .editing
             .as_ref()
@@ -284,12 +290,27 @@ impl Window {
         let cancel = button::icon(icon::from_name("window-close-symbolic"))
             .on_press(cosmic::Action::App(Message::CancelEdit));
 
-        Row::new()
+        let input_row = Row::new()
             .spacing(spacing.space_xxs)
             .align_y(Vertical::Center)
             .width(Length::Fill)
             .push(input)
-            .push(cancel)
+            .push(cancel);
+
+        let mut chips = Row::new().spacing(spacing.space_xxs).width(Length::Fill);
+        for h in Horizon::ALL {
+            let mut chip = button::standard(h.heading()).width(Length::Fill);
+            if h != current {
+                chip = chip.on_press(cosmic::Action::App(Message::MoveTo(h)));
+            }
+            chips = chips.push(chip);
+        }
+
+        Column::new()
+            .spacing(spacing.space_xxs)
+            .width(Length::Fill)
+            .push(input_row)
+            .push(chips)
             .into()
     }
 
@@ -523,6 +544,28 @@ impl cosmic::Application for Window {
             }
             Message::CancelEdit => {
                 self.editing = None;
+            }
+            Message::MoveTo(dest) => {
+                if let Some(state) = self.editing.take() {
+                    if state.horizon == dest {
+                        // No-op move; keep the editor open so it doesn't look like a hang.
+                        self.editing = Some(state);
+                    } else {
+                        let src_bucket = self.todo.bucket_mut(state.horizon);
+                        if state.index < src_bucket.len() {
+                            let mut task = src_bucket.remove(state.index);
+                            let trimmed = state.buffer.trim();
+                            if !trimmed.is_empty() {
+                                task.text = trimmed.to_string();
+                            }
+                            self.todo.bucket_mut(dest).push(task);
+                            self.save_todo();
+                            // Follow the task to its new home so the move is visible.
+                            self.horizon_model
+                                .activate(self.horizon_entities[dest.index()]);
+                        }
+                    }
+                }
             }
             Message::Reorder(h, new_order) => {
                 let bucket = self.todo.bucket_mut(h);
